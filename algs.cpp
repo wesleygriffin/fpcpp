@@ -1,7 +1,9 @@
 #include "helpers.hpp"
 #include <algorithm>
 #include <benchmark/benchmark.h>
+#if defined(_MSC_VER)
 #include <execution>
+#endif
 #include <numeric>
 #include <random>
 #include <string>

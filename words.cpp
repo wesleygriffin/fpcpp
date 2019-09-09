@@ -64,14 +64,15 @@ tl::optional<std::ifstream> open(std::filesystem::path const& path) {
     return ifs;
 }
 
-tl::optional<std::string> slurp(std::filesystem::path const& path) {
-    return open(path).and_then(read);
-} // slurp
+//tl::optional<std::string> slurp(std::filesystem::path const& path) {
+    //return open(path).and_then(read);
+//} // slurp
 
 #include <cstdlib>
 #include <iostream>
 
 int main() {
+#if defined(_MSC_VER_)
     auto words =
       open("../../../lorem_100words.txt")
         .and_then(read)
@@ -85,6 +86,6 @@ int main() {
     for (auto&& word : *words) {
       std::cout << "  " << word.second << ": " << word.first << "\n";
     }
-
+#endif
     return EXIT_SUCCESS;
 }

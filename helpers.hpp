@@ -37,10 +37,10 @@ template <class C, class Iter = decltype(std::begin(std::declval<C>())),
 constexpr auto enumerate(C&& c) {
   struct iterator {
     using iterator_category = std::input_iterator_tag;
-    using value_type        = std::iterator_traits<Iter>::value_type;
-    using difference_type   = std::iterator_traits<Iter>::difference_type;
-    using pointer           = std::iterator_traits<Iter>::pointer;
-    using reference         = std::iterator_traits<Iter>::reference;
+    using value_type        = typename std::iterator_traits<Iter>::value_type;
+    using difference_type   = typename std::iterator_traits<Iter>::difference_type;
+    using pointer           = typename std::iterator_traits<Iter>::pointer;
+    using reference         = typename std::iterator_traits<Iter>::reference;
 
     bool operator==(iterator const& o) const { return i_ == o.i_; }
     bool operator!=(iterator const& o) const { return !operator==(o); }

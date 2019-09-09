@@ -1,11 +1,14 @@
 #include "helpers.hpp"
 #include <algorithm>
-#include <execution>
 #include <filesystem>
 #include <fstream>
 #include <istream>
 #include <optional>
 #include <vector>
+
+#if defined(_MSC_VER)
+#include <execution>
+#endif
 
 auto open_file_stream(std::filesystem::path const& path) -> std::ifstream {
   return std::ifstream(path);
@@ -19,8 +22,12 @@ auto count_lines_in_stream(std::istream& is) {
 template <class C>
 auto open_files(C&& paths) {
   std::vector<std::ifstream> streams(paths.size());
+#if defined(_MSC_VER)
   std::transform(std::execution::par_unseq, std::begin(paths), std::end(paths),
                  std::begin(streams), open_file_stream);
+#else
+  std::transform(std::begin(paths), std::end(paths), std::begin(streams), open_file_stream);
+#endif
   return streams;
 }
 
@@ -28,8 +35,12 @@ template <class C>
 auto count_lines(C&& streams) {
   std::vector<decltype(count_lines_in_stream(streams[0]))> counts(
     std::size(streams));
+#if defined(_MSC_VER)
   std::transform(std::execution::par_unseq, std::begin(streams),
                  std::end(streams), std::begin(counts), count_lines_in_stream);
+#else
+  std::transform(std::begin(streams), std::end(streams), std::begin(counts), count_lines_in_stream);
+#endif
   return counts;
 }
 
@@ -51,7 +62,7 @@ int main() {
     "../../../helpers.hpp", "../../../.clang-format"};
 
   auto const counts = count_lines_in_files(filenames);
-  for (auto& [f, c] : iter::zip(filenames, counts)) {
+  for (auto&& [f, c] : iter::zip(filenames, counts)) {
     std::cout << f << ": " << c << "\n";
   }
 
