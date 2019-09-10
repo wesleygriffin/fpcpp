@@ -18,6 +18,20 @@ std::optional<T> get_if(Variant const& variant) {
   }
 }
 
+template <typename... Ts>
+struct overloaded : Ts... {
+  using Ts::operator()...;
+};
+
+template <typename... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
+
+template <typename Variant, typename... Matchers>
+auto match(Variant&& variant, Matchers&&... matchers) {
+  return std::visit(overloaded{std::forward<Matchers>(matchers)...},
+                    std::forward<Variant>(variant));
+}
+
 namespace algorithm {
 
 template <class InputIt, class T, class BinaryOperation = std::plus<T>>

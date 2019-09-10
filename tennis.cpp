@@ -1,17 +1,18 @@
 #include <optional>
 #include <ostream>
 #include <variant>
+#include "helpers.hpp"
 
 struct tennis {
   enum class points { love, fifteen, thirty };
   enum class players { one, two };
 
-  struct normal_scoring {
+  struct normal {
     points one;
     points two;
   };
 
-  struct forty_scoring {
+  struct forty {
     players leader;
     points  trailer;
   };
@@ -40,7 +41,7 @@ struct tennis {
     }
   }
 
-  void score(players player);
+  void score(players player) noexcept;
 
   constexpr bool game_over() const noexcept { return is<over>(); }
 
@@ -53,82 +54,59 @@ struct tennis {
   }
 
   tennis() noexcept
-    : state_{normal_scoring{points::love, points::love}} {}
+    : state_{normal{points::love, points::love}} {}
 
 private:
-  std::variant<normal_scoring, forty_scoring, deuce, advantage, over> state_;
+  using state_t = std::variant<normal, forty, deuce, advantage, over>;
+  state_t state_;
 };
 
-void tennis::score(players player) {
-  if (normal_scoring* ns = std::get_if<normal_scoring>(&state_)) {
-    switch (player) {
-    case players::one:
-      switch (ns->one) {
-      case points::love: ns->one = points::fifteen; break;
-      case points::fifteen: ns->one = points::thirty; break;
-      case points::thirty: state_ = forty_scoring{players::one, ns->two};
-      }
-      break;
-    case players::two:
-      switch (ns->two) {
-      case points::love: ns->two = points::fifteen; break;
-      case points::fifteen: ns->two = points::thirty; break;
-      case points::thirty: state_ = forty_scoring{players::two, ns->one};
-      }
-      break;
-    }
-  } else if (forty_scoring* fs = std::get_if<forty_scoring>(&state_)) {
-    switch (player) {
-    case players::one:
-      switch (fs->leader) {
-      case players::one: state_ = over{players::one}; break;
-      case players::two:
-        switch (fs->trailer) {
-        case points::love: fs->trailer = points::fifteen; break;
-        case points::fifteen: fs->trailer = points::thirty; break;
-        case points::thirty: state_ = deuce{}; break;
-        }
-        break;
-      }
-      break;
-    case players::two:
-      switch (fs->leader) {
+void tennis::score(players player) noexcept {
+  state_ = match(state_,
+    [=](normal& score) -> state_t {
+      switch (player) {
       case players::one:
-        switch (fs->trailer) {
-        case points::love: fs->trailer = points::fifteen; break;
-        case points::fifteen: fs->trailer = points::thirty; break;
-        case points::thirty: state_ = deuce{}; break;
+        switch (score.one) {
+        case points::love: return normal{points::fifteen, score.two};
+        case points::fifteen: return normal{points::thirty, score.two};
+        case points::thirty: return forty{players::one, score.two};
         }
         break;
-      case players::two: state_ = over{players::two}; break;
+      case players::two:
+        switch (score.two) {
+        case points::love: return normal{score.one, points::fifteen};
+        case points::fifteen: return normal{score.one, points::thirty};
+        case points::thirty: return forty{players::two, score.one};
+        }
+        break;
       }
-      break;
-    }
-  } else if (deuce* d = std::get_if<deuce>(&state_)) {
-    switch (player) {
-    case players::one: state_ = advantage{players::one}; break;
-    case players::two: state_ = advantage{players::two}; break;
-    }
-  } else if (advantage* a = std::get_if<advantage>(&state_)) {
-    switch (player) {
-    case players::one:
-      switch (a->leader) {
-      case players::one: state_ = over{players::one}; break;
-      case players::two: state_ = deuce{}; break;
+      __assume(0);
+    },
+    [=](forty& score) -> state_t {
+      if (player == score.leader) {
+        return over{score.leader};
+      } else {
+        switch (score.trailer) {
+        case points::love: return forty{score.leader, points::fifteen};
+        case points::fifteen: return forty{score.leader, points::thirty};
+        case points::thirty: return deuce{};
+        }
       }
-      break;
-    case players::two:
-      switch (a->leader) {
-      case players::one: state_ = deuce{}; break;
-      case players::two: state_ = over{players::two}; break;
+      __assume(0);
+    },
+    [=](deuce&) -> state_t {
+      return advantage{player};
+    },
+    [=](advantage& score) -> state_t {
+      if (player == score.leader) {
+        return over{score.leader};
+      } else {
+        return deuce{};
       }
-      break;
-    }
-  } else if (over* o = std::get_if<over>(&state_)) {
-    // calling score in this state is bad user input...
-  } else {
-    throw std::logic_error("invalid state");
-  }
+    },
+    [=](over& score) -> state_t {
+      return score;
+    });
 }
 
 std::ostream& operator<<(std::ostream& os, tennis::points points) {
@@ -152,39 +130,39 @@ std::ostream& operator<<(std::ostream& os, tennis::players players) {
 
 TEST(tennis, love_all) {
   tennis t;
-  EXPECT_TRUE(t.is<tennis::normal_scoring>());
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->one, tennis::points::love);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->two, tennis::points::love);
+  EXPECT_TRUE(t.is<tennis::normal>());
+  EXPECT_EQ(t.get<tennis::normal>()->one, tennis::points::love);
+  EXPECT_EQ(t.get<tennis::normal>()->two, tennis::points::love);
 }
 
 TEST(tennis, fifteen_love) {
   tennis t;
   t.score(tennis::players::one);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->one, tennis::points::fifteen);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->two, tennis::points::love);
+  EXPECT_EQ(t.get<tennis::normal>()->one, tennis::points::fifteen);
+  EXPECT_EQ(t.get<tennis::normal>()->two, tennis::points::love);
 }
 
 TEST(tennis, love_fifteen) {
   tennis t;
   t.score(tennis::players::two);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->one, tennis::points::love);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->two, tennis::points::fifteen);
+  EXPECT_EQ(t.get<tennis::normal>()->one, tennis::points::love);
+  EXPECT_EQ(t.get<tennis::normal>()->two, tennis::points::fifteen);
 }
 
 TEST(tennis, fifteen_all) {
   tennis t;
   t.score(tennis::players::one);
   t.score(tennis::players::two);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->one, tennis::points::fifteen);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->two, tennis::points::fifteen);
+  EXPECT_EQ(t.get<tennis::normal>()->one, tennis::points::fifteen);
+  EXPECT_EQ(t.get<tennis::normal>()->two, tennis::points::fifteen);
 }
 
 TEST(tennis, thirty_love) {
   tennis t;
   t.score(tennis::players::one);
   t.score(tennis::players::one);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->one, tennis::points::thirty);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->two, tennis::points::love);
+  EXPECT_EQ(t.get<tennis::normal>()->one, tennis::points::thirty);
+  EXPECT_EQ(t.get<tennis::normal>()->two, tennis::points::love);
 }
 
 TEST(tennis, thirty_fifteen) {
@@ -192,16 +170,16 @@ TEST(tennis, thirty_fifteen) {
   t.score(tennis::players::one);
   t.score(tennis::players::one);
   t.score(tennis::players::two);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->one, tennis::points::thirty);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->two, tennis::points::fifteen);
+  EXPECT_EQ(t.get<tennis::normal>()->one, tennis::points::thirty);
+  EXPECT_EQ(t.get<tennis::normal>()->two, tennis::points::fifteen);
 }
 
 TEST(tennis, love_thirty) {
   tennis t;
   t.score(tennis::players::two);
   t.score(tennis::players::two);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->one, tennis::points::love);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->two, tennis::points::thirty);
+  EXPECT_EQ(t.get<tennis::normal>()->one, tennis::points::love);
+  EXPECT_EQ(t.get<tennis::normal>()->two, tennis::points::thirty);
 }
 
 TEST(tennis, fifteen_thirty) {
@@ -209,8 +187,8 @@ TEST(tennis, fifteen_thirty) {
   t.score(tennis::players::two);
   t.score(tennis::players::two);
   t.score(tennis::players::one);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->one, tennis::points::fifteen);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->two, tennis::points::thirty);
+  EXPECT_EQ(t.get<tennis::normal>()->one, tennis::points::fifteen);
+  EXPECT_EQ(t.get<tennis::normal>()->two, tennis::points::thirty);
 }
 
 TEST(tennis, thirty_all) {
@@ -219,8 +197,8 @@ TEST(tennis, thirty_all) {
   t.score(tennis::players::one);
   t.score(tennis::players::two);
   t.score(tennis::players::two);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->one, tennis::points::thirty);
-  EXPECT_EQ(t.get<tennis::normal_scoring>()->two, tennis::points::thirty);
+  EXPECT_EQ(t.get<tennis::normal>()->one, tennis::points::thirty);
+  EXPECT_EQ(t.get<tennis::normal>()->two, tennis::points::thirty);
 }
 
 TEST(tennis, forty_love) {
@@ -228,8 +206,8 @@ TEST(tennis, forty_love) {
   t.score(tennis::players::one);
   t.score(tennis::players::one);
   t.score(tennis::players::one);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->leader, tennis::players::one);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->trailer, tennis::points::love);
+  EXPECT_EQ(t.get<tennis::forty>()->leader, tennis::players::one);
+  EXPECT_EQ(t.get<tennis::forty>()->trailer, tennis::points::love);
 }
 
 TEST(tennis, forty_fifteen_1) {
@@ -238,8 +216,8 @@ TEST(tennis, forty_fifteen_1) {
   t.score(tennis::players::one);
   t.score(tennis::players::two);
   t.score(tennis::players::one);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->leader, tennis::players::one);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->trailer, tennis::points::fifteen);
+  EXPECT_EQ(t.get<tennis::forty>()->leader, tennis::players::one);
+  EXPECT_EQ(t.get<tennis::forty>()->trailer, tennis::points::fifteen);
 }
 
 TEST(tennis, forty_thirty_1) {
@@ -249,8 +227,8 @@ TEST(tennis, forty_thirty_1) {
   t.score(tennis::players::two);
   t.score(tennis::players::two);
   t.score(tennis::players::one);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->leader, tennis::players::one);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->trailer, tennis::points::thirty);
+  EXPECT_EQ(t.get<tennis::forty>()->leader, tennis::players::one);
+  EXPECT_EQ(t.get<tennis::forty>()->trailer, tennis::points::thirty);
 }
 
 TEST(tennis, forty_fifteen_2) {
@@ -259,8 +237,8 @@ TEST(tennis, forty_fifteen_2) {
   t.score(tennis::players::one);
   t.score(tennis::players::one);
   t.score(tennis::players::two);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->leader, tennis::players::one);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->trailer, tennis::points::fifteen);
+  EXPECT_EQ(t.get<tennis::forty>()->leader, tennis::players::one);
+  EXPECT_EQ(t.get<tennis::forty>()->trailer, tennis::points::fifteen);
 }
 
 TEST(tennis, forty_thirty_2) {
@@ -270,8 +248,8 @@ TEST(tennis, forty_thirty_2) {
   t.score(tennis::players::one);
   t.score(tennis::players::two);
   t.score(tennis::players::two);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->leader, tennis::players::one);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->trailer, tennis::points::thirty);
+  EXPECT_EQ(t.get<tennis::forty>()->leader, tennis::players::one);
+  EXPECT_EQ(t.get<tennis::forty>()->trailer, tennis::points::thirty);
 }
 
 TEST(tennis, love_forty) {
@@ -279,8 +257,8 @@ TEST(tennis, love_forty) {
   t.score(tennis::players::two);
   t.score(tennis::players::two);
   t.score(tennis::players::two);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->leader, tennis::players::two);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->trailer, tennis::points::love);
+  EXPECT_EQ(t.get<tennis::forty>()->leader, tennis::players::two);
+  EXPECT_EQ(t.get<tennis::forty>()->trailer, tennis::points::love);
 }
 
 TEST(tennis, fifteen_forty_1) {
@@ -289,8 +267,8 @@ TEST(tennis, fifteen_forty_1) {
   t.score(tennis::players::two);
   t.score(tennis::players::one);
   t.score(tennis::players::two);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->leader, tennis::players::two);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->trailer, tennis::points::fifteen);
+  EXPECT_EQ(t.get<tennis::forty>()->leader, tennis::players::two);
+  EXPECT_EQ(t.get<tennis::forty>()->trailer, tennis::points::fifteen);
 }
 
 TEST(tennis, thirty_forty_1) {
@@ -300,8 +278,8 @@ TEST(tennis, thirty_forty_1) {
   t.score(tennis::players::one);
   t.score(tennis::players::one);
   t.score(tennis::players::two);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->leader, tennis::players::two);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->trailer, tennis::points::thirty);
+  EXPECT_EQ(t.get<tennis::forty>()->leader, tennis::players::two);
+  EXPECT_EQ(t.get<tennis::forty>()->trailer, tennis::points::thirty);
 }
 
 TEST(tennis, fifteen_forty_2) {
@@ -310,8 +288,8 @@ TEST(tennis, fifteen_forty_2) {
   t.score(tennis::players::two);
   t.score(tennis::players::two);
   t.score(tennis::players::one);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->leader, tennis::players::two);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->trailer, tennis::points::fifteen);
+  EXPECT_EQ(t.get<tennis::forty>()->leader, tennis::players::two);
+  EXPECT_EQ(t.get<tennis::forty>()->trailer, tennis::points::fifteen);
 }
 
 TEST(tennis, thirty_forty_2) {
@@ -321,8 +299,8 @@ TEST(tennis, thirty_forty_2) {
   t.score(tennis::players::two);
   t.score(tennis::players::one);
   t.score(tennis::players::one);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->leader, tennis::players::two);
-  EXPECT_EQ(t.get<tennis::forty_scoring>()->trailer, tennis::points::thirty);
+  EXPECT_EQ(t.get<tennis::forty>()->leader, tennis::players::two);
+  EXPECT_EQ(t.get<tennis::forty>()->trailer, tennis::points::thirty);
 }
 
 TEST(tennis, deuce_1) {
