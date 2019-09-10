@@ -63,7 +63,7 @@ private:
 
 void tennis::score(players player) noexcept {
   state_ = match(state_,
-    [=](normal& score) -> state_t {
+    [=](normal const& score) -> state_t {
       switch (player) {
       case players::one:
         switch (score.one) {
@@ -82,7 +82,7 @@ void tennis::score(players player) noexcept {
       }
       __assume(0);
     },
-    [=](forty& score) -> state_t {
+    [=](forty const& score) -> state_t {
       if (player == score.leader) {
         return over{score.leader};
       } else {
@@ -94,17 +94,17 @@ void tennis::score(players player) noexcept {
       }
       __assume(0);
     },
-    [=](deuce&) -> state_t {
+    [=](deuce const&) -> state_t {
       return advantage{player};
     },
-    [=](advantage& score) -> state_t {
+    [=](advantage const& score) -> state_t {
       if (player == score.leader) {
         return over{score.leader};
       } else {
         return deuce{};
       }
     },
-    [=](over& score) -> state_t {
+    [=](over const& score) -> state_t {
       return score;
     });
 }
