@@ -5,8 +5,18 @@
 #include <functional>
 #include <iterator>
 #include <numeric>
+#include <optional>
 #include <tuple>
 #include <type_traits>
+
+template <typename T, typename Variant>
+std::optional<T> get_if(Variant const& variant) {
+  if (T* ptr = std::get_if<T>(&variant)) {
+    return *ptr;
+  } else {
+    return std::optional<T>();
+  }
+}
 
 namespace algorithm {
 

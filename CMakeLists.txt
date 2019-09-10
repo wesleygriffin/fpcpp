@@ -2,9 +2,31 @@ cmake_minimum_required(VERSION 3.11)
 project(fpcpp)
 
 set(CMAKE_CXX_STANDARD 17)
+if(MSVC)
+  string(REPLACE "/W3" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+endif()
 
 include(FetchContent)
 set(EP_UPDATE_DISCONNECTED TRUE)
+
+FetchContent_Declare(googletest_ext
+  GIT_REPOSITORY https://github.com/google/googletest
+  GIT_SHALLOW TRUE
+  UPDATE_DISCONNECTED TRUE
+)
+#FetchContent_MakeAvailable(googletest_ext) # CMake >= 3.14
+FetchContent_GetProperties(googletest_ext)
+if(NOT googletest_POPULATED)
+  FetchContent_Populate(googletest_ext)
+  add_subdirectory(${googletest_ext_SOURCE_DIR} ${googletest_ext_BINARY_DIR})
+endif()
+
+include(GoogleTest)
+if(MSVC)
+  string(REPLACE "/MDd" "/MTd" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
+  string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
+  string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO})
+endif()
 
 set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(benchmark_ext
@@ -42,19 +64,43 @@ add_library(expected INTERFACE)
 target_include_directories(expected INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(sum sum.cpp)
+target_compile_options(sum PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
 
 add_executable(wc wc.cpp)
+target_compile_options(wc PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
 target_link_libraries(wc PRIVATE $<$<CXX_COMPILER_ID:GNU>:-lstdc++fs>)
 
 add_executable(algs algs.cpp)
+target_compile_options(algs PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
 target_link_libraries(algs PRIVATE benchmark)
 
 add_executable(words words.cpp)
+target_compile_options(words PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
 target_Link_libraries(words PRIVATE optional $<$<CXX_COMPILER_ID:GNU>:-lstdc++fs>)
 
 add_executable(maze maze.cpp)
+target_compile_options(maze PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
 
 add_executable(lazyeval lazyeval.cpp)
+target_compile_options(lazyeval PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
 
 add_executable(memoization memoization.cpp)
 target_compile_options(memoization PRIVATE
@@ -67,3 +113,17 @@ target_compile_options(log PRIVATE
   $<$<CXX_COMPILER_ID:GNU>:-Wall -march=native>
   $<$<CXX_COMPILER_ID:MSVC>:/W4 /arch:AVX2>
 )
+
+add_executable(ill ill.cpp)
+target_compile_options(ill PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
+
+add_executable(tennis tennis.cpp)
+target_compile_options(tennis PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
+target_Link_libraries(tennis PRIVATE gtest gtest_main)
+gtest_discover_tests(tennis)
