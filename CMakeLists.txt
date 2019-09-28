@@ -62,6 +62,13 @@ set(exp_url "https://raw.githubusercontent.com/TartanLlama/expected/master/inclu
 file(DOWNLOAD ${exp_url} ${CMAKE_CURRENT_BINARY_DIR}/tl/expected.hpp)
 add_library(expected INTERFACE)
 target_include_directories(expected INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
+target_compile_options(expected INTERFACE
+  $<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>
+)
+
+add_library(helpers INTERFACE)
+target_include_directories(helpers INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(helpers INTERFACE optional expected)
 
 add_executable(sum sum.cpp)
 target_compile_options(sum PRIVATE
@@ -74,14 +81,14 @@ target_compile_options(wc PRIVATE
   $<$<CXX_COMPILER_ID:GNU>:-Wall>
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
 )
-target_link_libraries(wc PRIVATE $<$<CXX_COMPILER_ID:GNU>:-lstdc++fs>)
+target_link_libraries(wc PRIVATE helpers $<$<CXX_COMPILER_ID:GNU>:-lstdc++fs>)
 
 add_executable(algs algs.cpp)
 target_compile_options(algs PRIVATE
   $<$<CXX_COMPILER_ID:GNU>:-Wall>
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
 )
-target_link_libraries(algs PRIVATE benchmark)
+target_link_libraries(algs PRIVATE helpers benchmark)
 
 add_executable(words words.cpp)
 target_compile_options(words PRIVATE
@@ -125,5 +132,46 @@ target_compile_options(tennis PRIVATE
   $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
 )
-target_Link_libraries(tennis PRIVATE gtest gtest_main)
+target_Link_libraries(tennis PRIVATE helpers gtest gtest_main)
 gtest_discover_tests(tennis)
+
+add_executable(mtry mtry.cpp)
+target_compile_options(mtry PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
+target_Link_libraries(mtry PRIVATE helpers)
+
+add_executable(expected_tests expected_tests.cpp)
+target_compile_options(expected_tests PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4 /Zc:__cplusplus>
+)
+target_link_libraries(expected_tests gtest gtest_main)
+
+add_executable(tmp tmp.cpp)
+target_compile_options(tmp PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
+
+add_executable(curried curried.cpp)
+target_compile_options(curried PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
+
+add_executable(actors actors.cpp)
+target_compile_options(actors PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
+
+add_executable(list list.cpp)
+target_compile_options(list PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
+target_Link_libraries(list PRIVATE helpers gtest gtest_main)
+gtest_discover_tests(list)
+

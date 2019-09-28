@@ -1,6 +1,8 @@
 #ifndef HELPERS_HPP
 #define HELPERS_HPP
 
+#include "tl/expected.hpp"
+#include "tl/optional.hpp"
 #include <algorithm>
 #include <functional>
 #include <iterator>
@@ -8,6 +10,9 @@
 #include <optional>
 #include <tuple>
 #include <type_traits>
+#include <variant>
+
+namespace variant {
 
 template <typename T, typename Variant>
 std::optional<T> get_if(Variant const& variant) {
@@ -24,7 +29,7 @@ struct overloaded : Ts... {
 };
 
 template <typename... Ts>
-overloaded(Ts...) -> overloaded<Ts...>;
+overloaded(Ts...)->overloaded<Ts...>;
 
 template <typename Variant, typename... Matchers>
 auto match(Variant&& variant, Matchers&&... matchers) {
@@ -32,32 +37,67 @@ auto match(Variant&& variant, Matchers&&... matchers) {
                     std::forward<Variant>(variant));
 }
 
+} // namespace variant
+
 namespace algorithm {
 
-template <class InputIt, class T, class BinaryOperation = std::plus<T>>
-T accumulate(InputIt first, InputIt last, T init,
-             BinaryOperation op = std::plus<T>()) {
+// C++20 accumulate with std::move
+template <typename InputIt, typename T, typename BinaryOperation = std::plus<T>>
+T accumulate(InputIt first, InputIt last, T init, BinaryOperation op = std::plus<T>()) {
   for (; first != last; ++first) init = op(std::move(init), *first);
   return init;
 }
 
-template <class InputIt, class UnaryPredicate>
+template <typename InputIt, typename UnaryPredicate>
 constexpr bool all_of(InputIt first, InputIt last, UnaryPredicate p) {
-  return algorithm::accumulate(
-    first, last, true, [&p](bool r, auto v) { return r & p(v); });
+  return algorithm::accumulate(first, last, true, [&p](bool r, auto v) { return r & p(v); });
 }
 
-template <class InputIt, class UnaryPredicate>
+template <typename InputIt, typename UnaryPredicate>
 constexpr bool any_of(InputIt first, InputIt last, UnaryPredicate p) {
-    return algorithm::accumulate(
-      first, last, false, [&p](bool r, auto v) { return r | p(v); });
+  return algorithm::accumulate(first, last, false, [&p](bool r, auto v) { return r | p(v); });
+}
+
+template <typename T, typename F>
+auto transform(std::optional<T> const& o, F f) -> decltype(std::optional{f(o.value())}) {
+  if (o) {
+    return {f(o.value())};
+  } else {
+    return {};
+  }
 }
 
 } // namespace algorithm
 
+namespace monad {
+
+template <typename T, typename F>
+auto mbind(std::optional<T> const& o, F f) -> decltype(f(o.value())) {
+  if (o) {
+    return f(o.value());
+  } else {
+    return {};
+  }
+}
+
+template <typename F, typename R = std::result_of_t<F()>,
+          typename E = tl::expected<R, std::exception_ptr>>
+E mtry(F f) {
+  try {
+    return {f()};
+  } catch (...) { return tl::unexpected{std::current_exception()}; }
+}
+
+template <typename F, typename G>
+auto mcompose(F f, G g) {
+  return [=](auto v) { return mbind(f(v), g); };
+}
+
+} // namespace monad
+
 namespace iter {
-template <class C, class Iter = decltype(std::begin(std::declval<C>())),
-          class = decltype(std::end(std::declval<C>()))>
+template <typename C, typename Iter = decltype(std::begin(std::declval<C>())),
+          typename = decltype(std::end(std::declval<C>()))>
 constexpr auto enumerate(C&& c) {
   struct iterator {
     using iterator_category = std::input_iterator_tag;
@@ -92,12 +132,12 @@ constexpr auto enumerate(C&& c) {
 namespace zip_detail {
 
 struct deref {
-  template <std::size_t I, class T>
+  template <std::size_t I, typename T>
   decltype(auto) constexpr get(T& t) const {
     return *std::get<I>(t);
   } // get
 
-  template <std::size_t... Indices, class T>
+  template <std::size_t... Indices, typename T>
   auto operator()(T& t, std::index_sequence<Indices...>) const {
     return std::make_tuple(get<Indices>(t)...);
   }
@@ -108,7 +148,7 @@ struct inc {
   void _(Ts&&...) {} // needed?? to induce side-effect of operator++(int)
 
   // clang-format off
-  template <class T, std::size_t... Is>
+  template <typename T, std::size_t... Is>
   void operator()(T& v, std::index_sequence<Is...>) { _(++std::get<Is>(v)...); }
   // clang-format on
 }; // struct inc
@@ -120,8 +160,8 @@ constexpr auto zip(Cs&&... cs) {
   struct iterator {
     using T                 = std::tuple<decltype(std::begin(cs))...>;
     using iterator_category = std::input_iterator_tag;
-    using value_type        = std::decay<decltype(zip_detail::deref()(
-      std::declval<T&>(), std::make_index_sequence<std::tuple_size_v<T>>()))>;
+    using value_type        = std::decay<decltype(
+      zip_detail::deref()(std::declval<T&>(), std::make_index_sequence<std::tuple_size_v<T>>()))>;
     using difference_type   = std::ptrdiff_t;
     using pointer           = T*;
     using reference         = T&;
@@ -130,8 +170,7 @@ constexpr auto zip(Cs&&... cs) {
       : v_(std::forward<T>(v)) {}
 
     bool operator==(iterator const& o) const {
-      static_assert(std::tuple_size_v<decltype(v_)> ==
-                    std::tuple_size_v<decltype(o.v_)>);
+      static_assert(std::tuple_size_v<decltype(v_)> == std::tuple_size_v<decltype(o.v_)>);
       return std::get<std::tuple_size_v<decltype(v_)> - 1>(v_) ==
              std::get<std::tuple_size_v<decltype(o.v_)> - 1>(o.v_);
     }
@@ -161,8 +200,7 @@ constexpr auto zip(Cs&&... cs) {
     mutable iterator e_;
   }; // struct wrapper
 
-  return wrapper{std::make_tuple(std::begin(cs)...),
-                 std::make_tuple(std::end(cs)...)};
+  return wrapper{std::make_tuple(std::begin(cs)...), std::make_tuple(std::end(cs)...)};
 } // zip
 
 } // namespace iter

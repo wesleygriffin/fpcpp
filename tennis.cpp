@@ -62,7 +62,7 @@ private:
 };
 
 void tennis::score(players player) noexcept {
-  state_ = match(state_,
+  state_ = variant::match(state_,
     [=](normal const& score) -> state_t {
       switch (player) {
       case players::one:
