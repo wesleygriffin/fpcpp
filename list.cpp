@@ -84,7 +84,7 @@ public:
     using difference_type   = linked_list::difference_type;
     using reference         = linked_list::reference;
     using pointer           = linked_list::pointer;
-    using iterator_category = std::forward_iterator_tag;
+    using iterator_category = std::bidirectional_iterator_tag;
 
     bool operator==(iterator const& other) const noexcept { return node_ == other.node_; }
     bool operator!=(iterator const& other) const noexcept { return node_ != other.node_; }
@@ -104,13 +104,13 @@ public:
 
     iterator operator++(int) {
       iterator prev{*this};
-      node_ = node_->next;
+      operator++();
       return prev;
     }
 
     iterator operator--(int) {
       iterator prev{*this};
-      node_ = node_->prev;
+      operator--();
       return prev;
     }
 
@@ -129,7 +129,7 @@ public:
     using difference_type   = linked_list::difference_type;
     using reference         = linked_list::const_reference;
     using pointer           = linked_list::const_pointer;
-    using iterator_category = std::forward_iterator_tag;
+    using iterator_category = std::bidirectional_iterator_tag;
 
     bool operator==(iterator const& other) const noexcept { return node_ == other.node_; }
     bool operator!=(iterator const& other) const noexcept { return node_ != other.node_; }
@@ -149,13 +149,13 @@ public:
 
     const_iterator operator++(int) {
       const_iterator prev{*this};
-      node_ = node_->next;
+      operator++();
       return prev;
     }
 
     const_iterator operator--(int) {
       const_iterator prev{*this};
-      node_ = node_->prev;
+      operator--();
       return prev;
     }
 
@@ -174,10 +174,10 @@ private:
     node* next{nullptr};
     node* prev{nullptr};
 
-    node(T const& value)
-      : value{value} {}
-    node(T&& value)
-      : value{std::forward<T>(value)} {}
+    node(T const& v)
+      : value{v} {}
+    node(T&& v)
+      : value{std::forward<T>(v)} {}
   }; // struct node
 };   // class linked_list
 

@@ -175,3 +175,11 @@ target_compile_options(list PRIVATE
 )
 target_Link_libraries(list PRIVATE helpers gtest gtest_main $<$<PLATFORM_ID:Linux>:pthread>)
 gtest_discover_tests(list)
+
+add_executable(tree tree.cpp)
+target_compile_options(tree PRIVATE
+  $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
+  $<$<CXX_COMPILER_ID:MSVC>:/W4>
+)
+target_Link_libraries(tree PRIVATE helpers gtest gtest_main $<$<PLATFORM_ID:Linux>:pthread>)
+gtest_discover_tests(tree)
