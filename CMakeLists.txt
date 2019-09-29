@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 project(fpcpp)
+include(CTest)
 
 set(CMAKE_CXX_STANDARD 17)
 if(MSVC)
@@ -174,4 +175,3 @@ target_compile_options(list PRIVATE
 )
 target_Link_libraries(list PRIVATE helpers gtest gtest_main $<$<PLATFORM_ID:Linux>:pthread>)
 gtest_discover_tests(list)
-
