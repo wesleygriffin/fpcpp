@@ -33,6 +33,11 @@ public:
 
   void insert(K const& key, V value);
 
+  void erase(K const& key);
+
+  pointer find(K const& key);
+  const_pointer find(K const& key) const { return find(key); }
+
   template <typename F>
   void traverse(traversals traversal, F callback) {
     traverse(root_, traversal, callback);
@@ -100,6 +105,84 @@ void binary_tree<K, V>::insert(K const& key, V value) {
   *curr = new node{key, std::move(value)};
   size_ += 1;
 } // binary_tree<K, V>::insert
+
+template <typename K, typename V>
+void binary_tree<K, V>::erase(K const& key) {
+  auto update_parent = [&](node** parent, node* child, node* new_child) {
+    if (parent) {
+      if ((*parent)->left == child) {
+        (*parent)->left = new_child;
+      } else {
+        (*parent)->right = new_child;
+      }
+    } else {
+      root_ = new_child;
+    }
+  };
+
+  auto find_min = [](node* root, node* child) {
+    auto parent = root;
+    auto curr = child;
+    while (curr->left) {
+      parent = curr;
+      curr = curr->left;
+    }
+    return std::make_pair(parent, curr);
+  };
+
+  auto curr = &root_;
+  decltype(curr) parent{nullptr};
+
+  while (*curr) {
+    auto curr_key = (*curr)->key;
+    if (curr_key > key) {
+      parent = curr;
+      curr = &((*curr)->left);
+    } else if (curr_key < key) {
+      parent = curr;
+      curr = &((*curr)->right);
+    } else {
+      if ((*curr)->left && (*curr)->right) {
+        // this will decrease "balance-ness" over time
+        auto&& [new_parent, successor] = find_min((*curr), (*curr)->right);
+
+        using std::swap;
+        swap((*curr)->key, successor->key);
+        swap((*curr)->value, successor->value);
+
+        parent = &new_parent;
+        curr = &successor;
+        continue;
+      } else if ((*curr)->left) {
+        update_parent(parent, (*curr), (*curr)->left);
+      } else if ((*curr)->right) {
+        update_parent(parent, (*curr), (*curr)->right);
+      } else {
+        update_parent(parent, (*curr), nullptr);
+      }
+
+      delete *curr;
+      size_ -= 1;
+      break;
+    }
+  }
+} // binary_tree<K, V>::erase
+
+template <typename K, typename V>
+typename binary_tree<K, V>::pointer binary_tree<K, V>::find(K const& key) {
+  auto curr = &root_;
+  while (*curr) {
+    auto curr_key = (*curr)->key;
+    if (curr_key == key) {
+      return &((*curr)->value);
+    } else if (curr_key > key) {
+      curr = &((*curr)->left);
+    } else {
+      curr = &((*curr)->right);
+    }
+  }
+  return nullptr;
+} // binary_tree<K, V>::find
 
 template <typename K, typename V>
 void binary_tree<K, V>::clear() {
@@ -192,4 +275,54 @@ TEST(tree, traversal) {
     }
     i += 1;
   });
+}
+
+TEST(tree, find) {
+  binary_tree<int, std::string> tree;
+  tree.insert(1, "one");
+  tree.insert(0, "zero");
+  ASSERT_NE(tree.find(0), nullptr);
+  ASSERT_EQ(*tree.find(0), "zero");
+  ASSERT_NE(tree.find(1), nullptr);
+  ASSERT_EQ(*tree.find(1), "one");
+  ASSERT_EQ(tree.find(2), nullptr);
+}
+
+TEST(tree, erase) {
+  binary_tree<int, std::string> tree;
+  tree.insert(0, "zero");
+  tree.erase(0);
+  ASSERT_TRUE(tree.empty());
+  ASSERT_EQ(tree.size(), 0);
+
+  tree.insert(1, "one");
+  tree.insert(0, "zero");
+  ASSERT_TRUE(tree.find(0) != nullptr);
+  ASSERT_TRUE(tree.find(1) != nullptr);
+
+  tree.erase(0);
+  ASSERT_FALSE(tree.empty());
+  ASSERT_EQ(tree.size(), 1);
+  ASSERT_TRUE(tree.find(0) == nullptr);
+  ASSERT_TRUE(tree.find(1) != nullptr);
+
+  tree.erase(1);
+  ASSERT_TRUE(tree.empty());
+  ASSERT_EQ(tree.size(), 0);
+  ASSERT_TRUE(tree.find(0) == nullptr);
+  ASSERT_TRUE(tree.find(1) == nullptr);
+
+  tree.insert(1, "one");
+  tree.insert(0, "zero");
+  tree.insert(2, "two");
+  ASSERT_EQ(tree.size(), 3);
+  ASSERT_TRUE(tree.find(0) != nullptr);
+  ASSERT_TRUE(tree.find(1) != nullptr);
+  ASSERT_TRUE(tree.find(2) != nullptr);
+
+  tree.erase(1);
+  ASSERT_TRUE(tree.find(0) != nullptr);
+  ASSERT_TRUE(tree.find(1) == nullptr);
+  ASSERT_TRUE(tree.find(2) != nullptr);
+  ASSERT_EQ(tree.size(), 2);
 }
