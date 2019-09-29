@@ -132,7 +132,7 @@ target_compile_options(tennis PRIVATE
   $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
 )
-target_Link_libraries(tennis PRIVATE helpers gtest gtest_main)
+target_Link_libraries(tennis PRIVATE helpers gtest gtest_main $<$<PLATFORM_ID:Linux>:pthread>)
 gtest_discover_tests(tennis)
 
 add_executable(mtry mtry.cpp)
@@ -147,7 +147,7 @@ target_compile_options(expected_tests PRIVATE
   $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
   $<$<CXX_COMPILER_ID:MSVC>:/W4 /Zc:__cplusplus>
 )
-target_link_libraries(expected_tests gtest gtest_main)
+target_link_libraries(expected_tests gtest gtest_main $<$<PLATFORM_ID:Linux>:pthread>)
 
 add_executable(tmp tmp.cpp)
 target_compile_options(tmp PRIVATE
@@ -172,6 +172,6 @@ target_compile_options(list PRIVATE
   $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
   $<$<CXX_COMPILER_ID:MSVC>:/W4>
 )
-target_Link_libraries(list PRIVATE helpers gtest gtest_main)
+target_Link_libraries(list PRIVATE helpers gtest gtest_main $<$<PLATFORM_ID:Linux>:pthread>)
 gtest_discover_tests(list)
 

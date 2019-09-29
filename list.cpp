@@ -51,7 +51,11 @@ public:
   linked_list(linked_list const& other);
   linked_list(linked_list&& other);
   linked_list& operator=(linked_list other);
+#if __GNUC__ < 9
+  ~linked_list() noexcept(noexcept(~T())) { clear(); }
+#else
   ~linked_list() noexcept(noexcept(clear())) { clear(); }
+#endif
 
   class iterator {
   public:
@@ -137,6 +141,8 @@ void linked_list<T>::clear() noexcept(noexcept(~T())) {
     delete node;
     node = next;
   }
+  head_ = nullptr;
+  size_ = 0;
 } // linked_list<T>::clear
 
 template <typename T>
@@ -265,3 +271,15 @@ TEST(list, assignment) {
   j = 9;
   for (auto&& i : ints3) ASSERT_EQ(i, j--);
 }
+
+TEST(list, clear) {
+  linked_list<int> ints;
+  for (int i = 0; i < 10; ++i) ints.push_front(i);
+  ASSERT_FALSE(ints.empty());
+  ASSERT_EQ(ints.size(), 10);
+
+  ints.clear();
+  ASSERT_TRUE(ints.empty());
+  ASSERT_EQ(ints.size(), 0);
+}
+

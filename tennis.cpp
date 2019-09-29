@@ -80,7 +80,11 @@ void tennis::score(players player) noexcept {
         }
         break;
       }
+#if defined(_MSC_VER)
       __assume(0);
+#elif defined(__GNUC__)
+      __builtin_unreachable();
+#endif
     },
     [=](forty const& score) -> state_t {
       if (player == score.leader) {
@@ -92,7 +96,11 @@ void tennis::score(players player) noexcept {
         case points::thirty: return deuce{};
         }
       }
+#if defined(_MSC_VER)
       __assume(0);
+#elif defined(__GNUC__)
+      __builtin_unreachable();
+#endif
     },
     [=](deuce const&) -> state_t {
       return advantage{player};
