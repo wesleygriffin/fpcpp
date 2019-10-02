@@ -202,3 +202,4 @@ gtest_discover_tests(ordered_map)
 
 add_executable(cusaxpy cusaxpy.cu)
 add_executable(nbody nbody.cu)
+target_include_directories(nbody PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
